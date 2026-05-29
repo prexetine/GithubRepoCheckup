@@ -1,0 +1,766 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Github 仓库体检工具</title>
+  <style>
+    :root {
+      --bg: linear-gradient(135deg, #f4efe4 0%, #f8fbff 50%, #e7f4ed 100%);
+      --ink: #1e293b;
+      --muted: #475569;
+      --panel: rgba(255, 255, 255, 0.78);
+      --panel-border: rgba(15, 23, 42, 0.08);
+      --accent: #0f766e;
+      --accent-2: #d97706;
+      --danger: #b91c1c;
+      --shadow: 0 18px 50px rgba(15, 23, 42, 0.08);
+      --radius: 20px;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Segoe UI", "Microsoft YaHei", sans-serif;
+      color: var(--ink);
+      background: var(--bg);
+      min-height: 100vh;
+    }
+
+    .shell {
+      max-width: 1120px;
+      margin: 0 auto;
+      padding: 40px 20px 64px;
+    }
+
+    .hero {
+      margin-bottom: 28px;
+      padding: 32px;
+      border-radius: 28px;
+      background:
+        radial-gradient(circle at top right, rgba(15, 118, 110, 0.18), transparent 26%),
+        radial-gradient(circle at bottom left, rgba(217, 119, 6, 0.16), transparent 24%),
+        rgba(255, 255, 255, 0.72);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(14px);
+    }
+
+    h1 {
+      margin: 0 0 12px;
+      font-size: clamp(32px, 5vw, 52px);
+      line-height: 1.02;
+      letter-spacing: -0.04em;
+    }
+
+    .subtitle {
+      max-width: 760px;
+      color: var(--muted);
+      font-size: 16px;
+      line-height: 1.7;
+    }
+
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--panel-border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(10px);
+    }
+
+    .form-panel {
+      padding: 24px;
+      margin-bottom: 24px;
+    }
+
+    .input-row {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 12px;
+    }
+
+    input[type="url"] {
+      width: 100%;
+      padding: 16px 18px;
+      border-radius: 14px;
+      border: 1px solid rgba(15, 23, 42, 0.12);
+      font-size: 15px;
+      outline: none;
+      background: rgba(255, 255, 255, 0.86);
+    }
+
+    button {
+      border: none;
+      border-radius: 14px;
+      padding: 0 22px;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      background: linear-gradient(135deg, var(--accent), #14b8a6);
+      color: #fff;
+      min-height: 52px;
+    }
+
+    button:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    .helper-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 12px;
+    }
+
+    .chip {
+      background: rgba(15, 118, 110, 0.08);
+      color: var(--accent);
+      padding: 8px 12px;
+      border-radius: 999px;
+      font-size: 13px;
+      cursor: pointer;
+    }
+
+    .status {
+      margin-top: 12px;
+      min-height: 24px;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .status.error { color: var(--danger); }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(12, 1fr);
+      gap: 18px;
+    }
+
+    .span-12 { grid-column: span 12; }
+    .span-8 { grid-column: span 8; }
+    .span-4 { grid-column: span 4; }
+    .span-6 { grid-column: span 6; }
+    .span-3 { grid-column: span 3; }
+
+    .section {
+      padding: 22px;
+    }
+
+    .section h2 {
+      margin: 0 0 14px;
+      font-size: 20px;
+    }
+
+    .repo-head {
+      display: flex;
+      gap: 16px;
+      align-items: flex-start;
+    }
+
+    .avatar {
+      width: 64px;
+      height: 64px;
+      border-radius: 18px;
+      object-fit: cover;
+      border: 1px solid rgba(15, 23, 42, 0.08);
+    }
+
+    .repo-meta p {
+      margin: 8px 0 0;
+      color: var(--muted);
+      line-height: 1.6;
+    }
+
+    .metric-card {
+      padding: 18px;
+    }
+
+    .metric-label {
+      font-size: 13px;
+      color: var(--muted);
+      margin-bottom: 8px;
+    }
+
+    .metric-value {
+      font-size: 28px;
+      font-weight: 700;
+      letter-spacing: -0.04em;
+    }
+
+    .metric-sub {
+      margin-top: 6px;
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    .list {
+      margin: 0;
+      padding-left: 18px;
+      color: var(--muted);
+      line-height: 1.7;
+    }
+
+    .lang-list, .health-list {
+      display: grid;
+      gap: 12px;
+    }
+
+    .lang-item, .health-item {
+      padding: 14px;
+      border-radius: 14px;
+      background: rgba(248, 250, 252, 0.72);
+      border: 1px solid rgba(15, 23, 42, 0.06);
+    }
+
+    .bar {
+      height: 10px;
+      background: rgba(15, 23, 42, 0.06);
+      border-radius: 999px;
+      overflow: hidden;
+      margin-top: 8px;
+    }
+
+    .bar > span {
+      display: block;
+      height: 100%;
+      background: linear-gradient(90deg, var(--accent), var(--accent-2));
+      border-radius: 999px;
+    }
+
+    .hidden {
+      display: none;
+    }
+
+    .browser-wrap {
+      display: grid;
+      grid-template-columns: 360px 1fr;
+      gap: 16px;
+      min-height: 520px;
+    }
+
+    .browser-pane {
+      border: 1px solid rgba(15, 23, 42, 0.08);
+      border-radius: 16px;
+      background: rgba(255, 255, 255, 0.62);
+      overflow: hidden;
+    }
+
+    .browser-head {
+      padding: 14px 16px;
+      border-bottom: 1px solid rgba(15, 23, 42, 0.08);
+      font-size: 14px;
+      color: var(--muted);
+      background: rgba(248, 250, 252, 0.75);
+    }
+
+    .tree-scroll {
+      max-height: 460px;
+      overflow: auto;
+      padding: 12px;
+    }
+
+    .tree-node {
+      margin: 2px 0;
+    }
+
+    .tree-label {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      width: 100%;
+      padding: 8px 10px;
+      border-radius: 10px;
+      cursor: pointer;
+      color: var(--ink);
+      background: transparent;
+      border: none;
+      text-align: left;
+      font-size: 14px;
+    }
+
+    .tree-label:hover {
+      background: rgba(15, 118, 110, 0.08);
+    }
+
+    .tree-label.dir {
+      font-weight: 600;
+    }
+
+    .tree-label.active-file {
+      background: rgba(15, 118, 110, 0.12);
+      color: var(--accent);
+    }
+
+    .twisty {
+      width: 14px;
+      display: inline-flex;
+      justify-content: center;
+      color: #64748b;
+      transition: transform 0.16s ease;
+    }
+
+    .tree-label.expanded .twisty {
+      transform: rotate(90deg);
+    }
+
+    .tree-children {
+      margin-left: 16px;
+      border-left: 1px dashed rgba(15, 23, 42, 0.10);
+      padding-left: 8px;
+    }
+
+    .tree-children.collapsed {
+      display: none;
+    }
+
+    .file-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-bottom: 12px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .code-view {
+      margin: 0;
+      padding: 16px;
+      height: 520px;
+      max-height: 520px;
+      overflow: auto;
+      background: #0f172a;
+      color: #e2e8f0;
+      border-radius: 0 0 16px 16px;
+      font-size: 13px;
+      line-height: 1.6;
+      white-space: pre;
+      word-break: normal;
+      overflow-wrap: normal;
+      font-family: Consolas, "Courier New", monospace;
+    }
+
+    @media (max-width: 900px) {
+      .span-8, .span-6, .span-4, .span-3 {
+        grid-column: span 12;
+      }
+
+      .input-row {
+        grid-template-columns: 1fr;
+      }
+
+      button {
+        width: 100%;
+      }
+
+      .browser-wrap {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <section class="hero">
+      <h1>Github 仓库体检工具</h1>
+      <div class="subtitle">
+        输入一个公开 Github 仓库链接，系统会抓取基础数据、计算健康度评分，并生成可视化的仓库体检结果。
+      </div>
+    </section>
+
+    <section class="panel form-panel">
+      <form id="analyze-form">
+        <div class="input-row">
+          <input id="repo-url" type="url" placeholder="例如：https://github.com/vercel/next.js" required />
+          <button id="submit-btn" type="submit">开始分析</button>
+        </div>
+      </form>
+      <div class="helper-row" id="example-list"></div>
+      <div id="status" class="status"></div>
+    </section>
+
+    <div id="results" class="grid hidden">
+      <section class="panel section span-12" id="repo-section"></section>
+      <section class="panel metric-card span-3" id="metric-stars"></section>
+      <section class="panel metric-card span-3" id="metric-forks"></section>
+      <section class="panel metric-card span-3" id="metric-watchers"></section>
+      <section class="panel metric-card span-3" id="metric-issues"></section>
+      <section class="panel section span-6" id="score-section"></section>
+      <section class="panel section span-6" id="health-section"></section>
+      <section class="panel section span-6" id="languages-section"></section>
+      <section class="panel section span-6" id="ai-section"></section>
+      <section class="panel section span-12" id="browser-section">
+        <h2>仓库文件浏览</h2>
+        <div class="browser-wrap">
+          <div class="browser-pane">
+            <div class="browser-head" id="tree-head">文件树</div>
+            <div class="tree-scroll" id="tree-panel">请先分析仓库</div>
+          </div>
+          <div class="browser-pane">
+            <div class="browser-head" id="file-head">文件内容</div>
+            <div style="padding: 16px;" id="file-meta"></div>
+            <pre class="code-view" id="file-content">选择左侧文件后，这里会显示内容。</pre>
+          </div>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <script>
+    const form = document.getElementById("analyze-form");
+    const repoInput = document.getElementById("repo-url");
+    const submitBtn = document.getElementById("submit-btn");
+    const statusNode = document.getElementById("status");
+    const resultsNode = document.getElementById("results");
+    const exampleListNode = document.getElementById("example-list");
+    const treePanelNode = document.getElementById("tree-panel");
+    const treeHeadNode = document.getElementById("tree-head");
+    const fileHeadNode = document.getElementById("file-head");
+    const fileMetaNode = document.getElementById("file-meta");
+    const fileContentNode = document.getElementById("file-content");
+    let currentRepoUrl = "";
+    let activeFilePath = "";
+    const treeCache = new Map();
+    const fileCache = new Map();
+
+    function setStatus(message, isError = false) {
+      statusNode.textContent = message || "";
+      statusNode.className = isError ? "status error" : "status";
+    }
+
+    function formatNumber(value) {
+      return new Intl.NumberFormat("zh-CN").format(value);
+    }
+
+    function formatDate(value) {
+      return new Date(value).toLocaleString("zh-CN", { hour12: false });
+    }
+
+    function metricCardHtml(label, value, sub = "") {
+      return `
+        <div class="metric-label">${label}</div>
+        <div class="metric-value">${value}</div>
+        <div class="metric-sub">${sub}</div>
+      `;
+    }
+
+    function renderRepo(data) {
+      document.getElementById("repo-section").innerHTML = `
+        <h2>仓库概览</h2>
+        <div class="repo-head">
+          <img class="avatar" src="${data.repo.avatarUrl}" alt="${data.repo.owner}" />
+          <div class="repo-meta">
+            <div style="font-size:24px;font-weight:700;">${data.repo.fullName}</div>
+            <p>${data.repo.description || "暂无描述"}</p>
+            <p>主语言：${data.repo.mainLanguage} ｜ License：${data.repo.license} ｜ 默认分支：${data.repo.defaultBranch}</p>
+            <p>更新时间：${formatDate(data.repo.updatedAt)} ｜ 最近 Push：${formatDate(data.repo.pushedAt)}</p>
+          </div>
+        </div>
+      `;
+    }
+
+    function renderMetrics(data) {
+      document.getElementById("metric-stars").innerHTML = metricCardHtml("Stars", formatNumber(data.metrics.stars), `Star/Fork 比：${data.metrics.starForkRatio}`);
+      document.getElementById("metric-forks").innerHTML = metricCardHtml("Forks", formatNumber(data.metrics.forks), `仓库年龄：${data.metrics.repoAgeDays} 天`);
+      document.getElementById("metric-watchers").innerHTML = metricCardHtml("Watchers", formatNumber(data.metrics.watchers), `距更新：${data.metrics.daysSinceUpdate} 天`);
+      document.getElementById("metric-issues").innerHTML = metricCardHtml("Open Issues", formatNumber(data.metrics.openIssues), `Topics：${data.metrics.topicsCount}`);
+    }
+
+    function renderScore(data) {
+      document.getElementById("score-section").innerHTML = `
+        <h2>综合评分</h2>
+        <div style="font-size:48px;font-weight:800;letter-spacing:-0.06em;">${data.score.total}<span style="font-size:20px;color:#64748b;"> / ${data.score.maxScore}</span></div>
+        <p style="color:#475569;line-height:1.7;">${data.score.summary}</p>
+        <p><strong>评级：</strong>${data.score.level}</p>
+      `;
+    }
+
+    function renderHealth(data) {
+      const items = [
+        ["社区热度", data.health.popularity],
+        ["项目活跃度", data.health.activity],
+        ["维护规范度", data.health.maintenance],
+        ["技术清晰度", data.health.technicalClarity]
+      ];
+
+      document.getElementById("health-section").innerHTML = `
+        <h2>健康度维度</h2>
+        <div class="health-list">
+          ${items.map(([name, item]) => `
+            <div class="health-item">
+              <div style="display:flex;justify-content:space-between;gap:12px;">
+                <strong>${name}</strong>
+                <span>${item.score}</span>
+              </div>
+              <div style="margin-top:6px;color:#475569;">${item.summary}</div>
+              <div class="bar"><span style="width:${Math.min(item.score * 100 / (name === "社区热度" || name === "项目活跃度" ? 30 : 20), 100)}%"></span></div>
+            </div>
+          `).join("")}
+        </div>
+      `;
+    }
+
+    function renderLanguages(data) {
+      const content = data.charts.languages.length
+        ? data.charts.languages.map(item => `
+            <div class="lang-item">
+              <div style="display:flex;justify-content:space-between;gap:12px;">
+                <strong>${item.name}</strong>
+                <span>${item.percent}%</span>
+              </div>
+              <div class="bar"><span style="width:${item.percent}%"></span></div>
+            </div>
+          `).join("")
+        : "<p style='color:#64748b;'>暂无语言分布数据</p>";
+
+      document.getElementById("languages-section").innerHTML = `
+        <h2>语言分布</h2>
+        <div class="lang-list">${content}</div>
+      `;
+    }
+
+    function renderAI(data) {
+      const report = data.aiReport;
+      const html = report.available ? `
+        <p style="color:#475569;line-height:1.7;">${report.summary}</p>
+        <p><strong>AI 评级：</strong>${report.level} ｜ <strong>AI 分数：</strong>${report.score}</p>
+        <strong>优势</strong>
+        <ul class="list">${report.strengths.map(item => `<li>${item}</li>`).join("")}</ul>
+        <strong>风险</strong>
+        <ul class="list">${report.risks.map(item => `<li>${item}</li>`).join("")}</ul>
+        <strong>建议</strong>
+        <ul class="list">${report.advice.map(item => `<li>${item}</li>`).join("")}</ul>
+      ` : `
+        <p style="color:#475569;line-height:1.7;">AI 报告当前使用兜底逻辑输出，后续可接入真实大模型服务。</p>
+        <p><strong>状态：</strong>${report.error || "未启用"}</p>
+      `;
+
+      document.getElementById("ai-section").innerHTML = `<h2>AI 体检报告</h2>${html}`;
+    }
+
+    function renderAILoading() {
+      document.getElementById("ai-section").innerHTML = `
+        <h2>AI 体检报告</h2>
+        <p style="color:#475569;line-height:1.7;">正在基于仓库结构化指标生成 AI 分析，请稍候...</p>
+      `;
+    }
+
+    function normalizeRepoUrl(repoUrl) {
+      return repoUrl.trim().replace(/\/+$/, "");
+    }
+
+    function escapeHtml(text) {
+      return text
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;");
+    }
+
+    function renderTreeNode(node) {
+      const icon = node.type === "dir" ? "📁" : "📄";
+      const twisty = node.type === "dir" ? `<span class="twisty">▶</span>` : `<span class="twisty"></span>`;
+      const isExpanded = node.path.split("/").length <= 1;
+      const childrenHtml = node.type === "dir" && node.children.length
+        ? `<div class="tree-children ${isExpanded ? "" : "collapsed"}">${node.children.map(renderTreeNode).join("")}</div>`
+        : "";
+
+      return `
+        <div class="tree-node">
+          <button class="tree-label ${node.type === "dir" ? "dir" : ""} ${isExpanded && node.type === "dir" ? "expanded" : ""}" data-type="${node.type}" data-path="${node.path}">
+            ${twisty}
+            <span>${icon}</span>
+            <span>${node.name}</span>
+          </button>
+          ${childrenHtml}
+        </div>
+      `;
+    }
+
+    async function loadRepoTree(repoUrl, repoFullName) {
+      const normalizedRepoUrl = normalizeRepoUrl(repoUrl);
+      treeHeadNode.textContent = `${repoFullName} 文件树`;
+      treePanelNode.innerHTML = "正在加载文件树...";
+      fileHeadNode.textContent = "文件内容";
+      fileMetaNode.innerHTML = "";
+      fileContentNode.textContent = "选择左侧文件后，这里会显示内容。";
+
+      if (treeCache.has(normalizedRepoUrl)) {
+        const cached = treeCache.get(normalizedRepoUrl);
+        renderRepoTreeNodes(cached.nodes, normalizedRepoUrl);
+        return;
+      }
+
+      const response = await fetch(`/api/repo/tree?repoUrl=${encodeURIComponent(normalizedRepoUrl)}`);
+      const payload = await response.json();
+      if (!response.ok || !payload.success) {
+        throw new Error(payload.message || "文件树加载失败");
+      }
+
+      treeCache.set(normalizedRepoUrl, payload.data);
+      renderRepoTreeNodes(payload.data.nodes || [], normalizedRepoUrl);
+    }
+
+    function renderRepoTreeNodes(nodes, normalizedRepoUrl) {
+      if (!nodes.length) {
+        treePanelNode.innerHTML = "该仓库没有可展示的文件树数据。";
+        return;
+      }
+
+      treePanelNode.innerHTML = nodes.map(renderTreeNode).join("");
+      treePanelNode.querySelectorAll(".tree-label").forEach(node => {
+        node.addEventListener("click", async () => {
+          const type = node.dataset.type;
+          const path = node.dataset.path;
+          if (type === "dir") {
+            const container = node.parentElement;
+            const children = container ? container.querySelector(":scope > .tree-children") : null;
+            if (children) {
+              children.classList.toggle("collapsed");
+              node.classList.toggle("expanded");
+            }
+            return;
+          }
+          treePanelNode.querySelectorAll(".tree-label.active-file").forEach(item => item.classList.remove("active-file"));
+          node.classList.add("active-file");
+          activeFilePath = path;
+          await loadRepoFile(normalizedRepoUrl, path);
+        });
+      });
+    }
+
+    async function loadRepoFile(repoUrl, path) {
+      const normalizedRepoUrl = normalizeRepoUrl(repoUrl);
+      const cacheKey = `${normalizedRepoUrl}::${path}`;
+      fileHeadNode.textContent = path;
+      fileMetaNode.innerHTML = "正在加载文件内容...";
+      fileContentNode.textContent = "";
+
+      if (fileCache.has(cacheKey)) {
+        renderRepoFile(fileCache.get(cacheKey));
+        return;
+      }
+
+      const response = await fetch(`/api/repo/file?repoUrl=${encodeURIComponent(normalizedRepoUrl)}&path=${encodeURIComponent(path)}`);
+      const payload = await response.json();
+      if (!response.ok || !payload.success) {
+        throw new Error(payload.message || "文件加载失败");
+      }
+
+      fileCache.set(cacheKey, payload.data);
+      renderRepoFile(payload.data);
+    }
+
+    function renderRepoFile(file) {
+      fileMetaNode.innerHTML = `
+        <div class="file-meta">
+          <span>文件名：${file.name}</span>
+          <span>大小：${formatNumber(file.size)} bytes</span>
+          <span>编码：${file.encoding}</span>
+          ${file.htmlUrl ? `<a href="${file.htmlUrl}" target="_blank" rel="noreferrer">Github 打开</a>` : ""}
+        </div>
+      `;
+      fileContentNode.innerHTML = escapeHtml(file.content || "");
+    }
+
+    async function loadAIReport(data) {
+      renderAILoading();
+      try {
+        const response = await fetch("/api/analyze/ai", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            repo: data.repo,
+            metrics: data.metrics,
+            health: data.health,
+            score: data.score
+          })
+        });
+        const payload = await response.json();
+        if (!response.ok || !payload.success) {
+          throw new Error(payload.message || "AI 分析失败");
+        }
+        renderAI({ aiReport: payload.data });
+      } catch (error) {
+        renderAI({
+          aiReport: {
+            enabled: true,
+            available: false,
+            error: error.message || "AI 分析失败"
+          }
+        });
+      }
+    }
+
+    async function loadExamples() {
+      const response = await fetch("/api/examples");
+      const payload = await response.json();
+      exampleListNode.innerHTML = payload.data.map(url => `<span class="chip" data-url="${url}">${url}</span>`).join("");
+      exampleListNode.querySelectorAll(".chip").forEach(node => {
+        node.addEventListener("click", () => {
+          repoInput.value = node.dataset.url;
+        });
+      });
+    }
+
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const repoUrl = repoInput.value.trim();
+      if (!repoUrl) {
+        setStatus("请输入仓库链接", true);
+        return;
+      }
+
+      submitBtn.disabled = true;
+      setStatus("正在分析仓库，请稍候...");
+      resultsNode.classList.add("hidden");
+
+      try {
+        const response = await fetch("/api/analyze", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ repoUrl, enableAI: false })
+        });
+        const payload = await response.json();
+        const data = payload.data || payload.detail?.data;
+
+        if (!response.ok || !payload.success) {
+          throw new Error(payload.message || payload.detail?.message || "分析失败");
+        }
+
+        renderRepo(data);
+        renderMetrics(data);
+        renderScore(data);
+        renderHealth(data);
+        renderLanguages(data);
+        renderAI(data);
+        const normalizedRepoUrl = normalizeRepoUrl(repoUrl);
+        currentRepoUrl = normalizedRepoUrl;
+        activeFilePath = "";
+        if (!treeCache.has(normalizedRepoUrl)) {
+          await loadRepoTree(normalizedRepoUrl, data.repo.fullName);
+        } else {
+          treeHeadNode.textContent = `${data.repo.fullName} 文件树`;
+          renderRepoTreeNodes(treeCache.get(normalizedRepoUrl).nodes || [], normalizedRepoUrl);
+          fileHeadNode.textContent = "文件内容";
+          fileMetaNode.innerHTML = "";
+          fileContentNode.textContent = "选择左侧文件后，这里会显示内容。";
+        }
+        resultsNode.classList.remove("hidden");
+        setStatus("基础分析完成，AI 分析进行中...");
+        void loadAIReport(data).then(() => {
+          setStatus("分析完成");
+        }).catch(() => {
+          setStatus("基础分析完成，AI 分析失败", true);
+        });
+      } catch (error) {
+        setStatus(error.message || "请求失败", true);
+      } finally {
+        submitBtn.disabled = false;
+      }
+    });
+
+    loadExamples().catch(() => {
+      setStatus("示例仓库加载失败");
+    });
+  </script>
+</body>
+</html>
